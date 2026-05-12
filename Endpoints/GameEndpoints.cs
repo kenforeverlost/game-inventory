@@ -2,7 +2,6 @@ using GameInventory.Data;
 using GameInventory.Dtos;
 using GameInventory.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace GameInventory.Endpoints;
