@@ -17,3 +17,14 @@ A basic ASP.NET Core Web API project created based on this [YouTube Tutorial](ht
 ```
 $env:ConnectionStrings__GameStore="Data Source=Production.db"
 ```
+
+- Example body for POST requests:
+
+```
+    {
+        "Name":"Final Fantasy VII Rebirth",
+        "GenreId": 2,
+        "Price": 69.99,
+        "ReleaseDate": "2024-02-21"
+    }
+```

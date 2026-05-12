@@ -1,141 +1,126 @@
 using GameInventory.Data;
 using GameInventory.Dtos;
 using GameInventory.Models;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace GameInventory.Endpoints;
 
 public static class GameEndpoints
 {
-    // Example Games:
-    // {
-    //     "Name":"Street Fighter II",
-    //     "GenreId": 1,
-    //     "Price": 19.99,
-    //     "ReleaseDate": "1992-07-15"
-    // }
-    // {
-    //     "Name":"Final Fantasy VII Rebirth",
-    //     "GenreId": 2,
-    //     "Price": 69.99,
-    //     "ReleaseDate": "2024-02-29"
-    // }
-    // {
-    //     "Name":"Astro Bot",
-    //     "GenreId": 3,
-    //     "Price": 39.99,
-    //     "ReleaseDate": "2024-09-06"
-    // }
+    private static string _getGameEndpoint = "GetName";
 
     public static void MapGamesEndpoints(this WebApplication app)
     {
-        const string GetGameEndpoint = "GetName";
-
         var group = app.MapGroup("/games");
 
-        group.MapGet(
-            "/",
-            async (GameStoreContext dbContext) =>
-            {
-                var games = await dbContext
-                    .Games.Include(game => game.Genre)
-                    .Select(game => new GameSummaryDto(
-                        game.Id,
-                        game.Name,
-                        game.Genre!.Name,
-                        game.Price,
-                        game.ReleaseDate
-                    ))
-                    .AsNoTracking()
-                    .ToListAsync();
+        group.MapGet("/", Get);
+        group.MapGet("/{id}", GetById).WithName(_getGameEndpoint);
 
-                return games;
-            }
-        );
-        group
-            .MapGet(
-                "/{id}",
-                async (int id, GameStoreContext dbContext) =>
-                {
-                    var game = await dbContext.Games.FindAsync(id);
+        group.MapPost("/", Create);
 
-                    if (game is null)
-                    {
-                        return Results.NotFound();
-                    }
-                    else
-                    {
-                        GameDetailsDto gameDto = new(
-                            game.Id,
-                            game.Name,
-                            game.GenreId,
-                            game.Price,
-                            game.ReleaseDate
-                        );
+        group.MapPut("/{id}", Update);
 
-                        return Results.Ok(gameDto);
-                    }
-                }
-            )
-            .WithName(GetGameEndpoint);
+        group.MapDelete("/{id}", Delete);
+    }
 
-        group.MapPost(
-            "/",
-            async (CreateGameDto newGame, GameStoreContext dbContext) =>
-            {
-                Game game = new()
-                {
-                    Name = newGame.Name,
-                    GenreId = newGame.GenreId,
-                    Price = newGame.Price,
-                    ReleaseDate = newGame.ReleaseDate,
-                };
+    private static async Task<Ok<List<GameSummaryDto>>> Get(GameStoreContext dbContext)
+    {
+        var games = await dbContext
+            .Games.Include(game => game.Genre)
+            .Select(game => new GameSummaryDto(
+                game.Id,
+                game.Name,
+                game.Genre!.Name,
+                game.Price,
+                game.ReleaseDate
+            ))
+            .AsNoTracking()
+            .ToListAsync();
 
-                dbContext.Games.Add(game);
-                await dbContext.SaveChangesAsync();
+        return TypedResults.Ok(games);
+    }
 
-                GameDetailsDto gameDto = new(
-                    game.Id,
-                    game.Name,
-                    game.GenreId,
-                    game.Price,
-                    game.ReleaseDate
-                );
+    private static async Task<Results<Ok<GameDetailsDto>, NotFound>> GetById(
+        int id,
+        GameStoreContext dbContext
+    )
+    {
+        var game = await dbContext.Games.FindAsync(id);
 
-                return Results.CreatedAtRoute(GetGameEndpoint, new { id = gameDto.Id }, gameDto);
-            }
-        );
+        if (game is null)
+        {
+            return TypedResults.NotFound();
+        }
+        else
+        {
+            GameDetailsDto gameDto = new(
+                game.Id,
+                game.Name,
+                game.GenreId,
+                game.Price,
+                game.ReleaseDate
+            );
 
-        group.MapPut(
-            "/{id}",
-            async (int id, UpdateGameDto updatedGame, GameStoreContext dbContext) =>
-            {
-                var existingGame = await dbContext.Games.FindAsync(id);
+            return TypedResults.Ok(gameDto);
+        }
+    }
 
-                if (existingGame is null)
-                {
-                    return Results.NotFound();
-                }
+    private static async Task<CreatedAtRoute<GameDetailsDto>> Create(
+        CreateGameDto newGame,
+        GameStoreContext dbContext
+    )
+    {
+        Game game = new()
+        {
+            Name = newGame.Name,
+            GenreId = newGame.GenreId,
+            Price = newGame.Price,
+            ReleaseDate = newGame.ReleaseDate,
+        };
 
-                existingGame.Name = updatedGame.Name;
-                existingGame.GenreId = updatedGame.GenreId;
-                existingGame.Price = updatedGame.Price;
-                existingGame.ReleaseDate = updatedGame.ReleaseDate;
+        dbContext.Games.Add(game);
+        await dbContext.SaveChangesAsync();
 
-                await dbContext.SaveChangesAsync();
-
-                return Results.NoContent();
-            }
+        GameDetailsDto gameDto = new(
+            game.Id,
+            game.Name,
+            game.GenreId,
+            game.Price,
+            game.ReleaseDate
         );
 
-        group.MapDelete(
-            "/{id}",
-            async (int id, GameStoreContext dbContext) =>
-            {
-                await dbContext.Games.Where(game => game.Id == id).ExecuteDeleteAsync();
+        return TypedResults.CreatedAtRoute(gameDto, _getGameEndpoint, new { id = gameDto.Id });
+    }
 
-                return Results.NoContent();
-            }
-        );
+    private static async Task<Results<Ok, NotFound>> Update(
+        int id,
+        UpdateGameDto updatedGame,
+        GameStoreContext dbContext
+    )
+    {
+        var existingGame = await dbContext.Games.FindAsync(id);
+
+        if (existingGame is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        existingGame.Name = updatedGame.Name;
+        existingGame.GenreId = updatedGame.GenreId;
+        existingGame.Price = updatedGame.Price;
+        existingGame.ReleaseDate = updatedGame.ReleaseDate;
+
+        await dbContext.SaveChangesAsync();
+
+        return TypedResults.Ok();
+    }
+
+    private static async Task<Ok> Delete(int id, GameStoreContext dbContext)
+    {
+        await dbContext.Games.Where(game => game.Id == id).ExecuteDeleteAsync();
+
+        return TypedResults.Ok();
     }
 }
