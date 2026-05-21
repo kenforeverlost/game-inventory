@@ -23,7 +23,7 @@ public static class DataExtensions
         // 4. Makes it easier to manage transactions and ensure data consistency
         // 5. Reusing a DbContext instance can lead to increased memory ussage
 
-        builder.Services.AddSqlite<GameStoreContext>(
+        builder.Services.AddSqlServer<GameStoreContext>(
             connectionString,
             optionsAction: options =>
                 options.UseSeeding(
